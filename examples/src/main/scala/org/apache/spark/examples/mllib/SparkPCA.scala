@@ -31,7 +31,7 @@ import org.apache.spark.mllib.linalg.SparseMatrix
  * For example input file, see:
  * mllib/data/als/test.data  (example is 4 x 4)
  */
-object SparkSVD {
+object SparkPCA {
   def main(args: Array[String]) {
    if (args.length != 4) {
       System.err.println("Usage: SparkPCA <master> <file> m n")
@@ -51,6 +51,6 @@ object SparkSVD {
     // recover top principal component
     val coeffs = PCA.computePCA(SparseMatrix(data, m, n), 1)
 
-    println("singular values = " + coeffs.toArray.mkString)
+    println("top principal component = " + coeffs.data.toArray.mkString)
   }
 }
