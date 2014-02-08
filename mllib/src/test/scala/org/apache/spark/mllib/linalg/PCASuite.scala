@@ -78,9 +78,6 @@ class PCASuite extends FunSuite with BeforeAndAfterAll {
 
     val coeffs = PCA.computePCA(a, n)
 
-    println(coeffs.data.toArray.mkString(", "))
-    println(realpca.toArray.mkString(", "))
-
     assertMatrixEquals(getDenseMatrix(SparseMatrix(realpca,n,n)), getDenseMatrix(coeffs))  
   }
 
