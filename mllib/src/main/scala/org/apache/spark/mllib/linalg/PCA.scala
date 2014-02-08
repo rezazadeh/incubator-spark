@@ -27,22 +27,22 @@ import org.jblas.{DoubleMatrix, Singular, MatrixFunctions}
 /**
  * Class used to obtain singular value decompositions
  */
-class SVD {
+class PCA {
   private var k: Int = 1
 
   /**
    * Set the number of top-k singular vectors to return
    */
-  def setK(k: Int): SVD = {
+  def setK(k: Int): PCA = {
     this.k = k
     this
   }
 
    /**
-   * Compute SVD using the current set parameters
+   * Compute PCA using the current set parameters
    */
-  def compute(matrix: SparseMatrix) : MatrixSVD = {
-    SVD.sparseSVD(matrix, k)
+  def compute(matrix: SparseMatrix) : MatrixPCA = {
+    PCA.computePCA(matrix, k)
   }
 }
 
@@ -51,7 +51,7 @@ class SVD {
  * Top-level methods for calling Singular Value Decomposition
  * NOTE: All matrices are in 0-indexed sparse format RDD[((int, int), value)]
  */
-object SVD {
+object PCA {
 /**
  * Singular Value Decomposition for Tall and Skinny matrices.
  * Given an m x n matrix A, this will compute matrices U, S, V such that
@@ -81,12 +81,12 @@ object SVD {
  * @param k Recover k singular values and vectors
  * @return Three sparse matrices: U, S, V such that A = USV^T
  */
-  def sparseSVD(
+  def computePCA(
       matrix: SparseMatrix,
       k: Int)
-    : MatrixSVD =
+    : SparseMatrix =
   {
-    val data = matrix.data
+    val rawdata = matrix.data
     val m = matrix.m
     val n = matrix.n
 
@@ -94,9 +94,11 @@ object SVD {
       throw new IllegalArgumentException("Expecting a tall and skinny matrix")
     }
 
-    if (k < 1 || k > n) {
-      throw new IllegalArgumentException("Must request up to n singular values")
-    }
+    // compute column sums and normalize matrix
+    val colsums = rawdata.map(entry => (entry.j, entry.mval)).reduceByKey(_+_)
+    val data = rawdata.map(entry => (entry.j, (entry.i, entry.mval))).join(colsums).map{
+      case (col, ((row, mval), colsum)) =>
+        (row, col, (mval - colsum / n.toDouble)) / Math.sqrt(m-1)}
 
     // Compute A^T A, assuming rows are sparse enough to fit in memory
     val rows = data.map(entry =>
@@ -113,8 +115,8 @@ object SVD {
       ata.put(entry._1._1, entry._1._2, entry._2)
     }
 
-    // Since A^T A is small, we can compute its SVD directly
-    val svd = Singular.sparseSVD(ata)
+    // Since A^T A is small, we can compute its PCA directly
+    val svd = Singular.sparsePCA(ata)
     val V = svd(0)
     val sigmas = MatrixFunctions.sqrt(svd(1)).toArray.filter(x => x > 1e-9)
 
@@ -131,33 +133,13 @@ object SVD {
             Array.tabulate(V.rows, sigma.length){ (i,j) =>
                     MatrixEntry(i, j, V.get(i,j)) }.flatten)
     val retV = SparseMatrix(retVdata, V.rows, sigma.length)
-     
-    val retSdata = sc.makeRDD(Array.tabulate(sigma.length){
-      x => MatrixEntry(x, x, sigma(x))})
-
-    val retS = SparseMatrix(retSdata, sigma.length, sigma.length)
-
-    // Compute U as U = A V S^-1
-    // turn V S^-1 into an RDD as a sparse matrix
-    val vsirdd = sc.makeRDD(Array.tabulate(V.rows, sigma.length)
-                { (i,j) => ((i, j), V.get(i,j) / sigma(j))  }.flatten)
-
-    // Multiply A by VS^-1
-    val aCols = data.map(entry => (entry.j, (entry.i, entry.mval)))
-    val bRows = vsirdd.map(entry => (entry._1._1, (entry._1._2, entry._2)))
-    val retUdata = aCols.join(bRows).map( {case (key, ( (rowInd, rowVal), (colInd, colVal)) )
-        => ((rowInd, colInd), rowVal*colVal)}).reduceByKey(_+_)
-          .map{ case ((row, col), mval) => MatrixEntry(row, col, mval)}
-    val retU = SparseMatrix(retUdata, m, sigma.length) 
-   
-    MatrixSVD(retU, retS, retV)  
   }
 
 
   def main(args: Array[String]) {
     if (args.length < 8) {
-      println("Usage: SVD <master> <matrix_file> <m> <n> " +
-              "<k> <output_U_file> <output_S_file> <output_V_file>")
+      println("Usage: PCA <master> <matrix_file> <m> <n> " +
+              "<k> <output_coefficient_file>")
       System.exit(1)
     }
 
@@ -165,7 +147,7 @@ object SVD {
       (args(0), args(1), args(2).toInt, args(3).toInt,
       args(4).toInt, args(5), args(6), args(7))
     
-    val sc = new SparkContext(master, "SVD")
+    val sc = new SparkContext(master, "PCA")
     
     val rawdata = sc.textFile(inputFile)
     val data = rawdata.map { line =>
@@ -173,7 +155,7 @@ object SVD {
       MatrixEntry(parts(0).toInt, parts(1).toInt, parts(2).toDouble)
     }
 
-    val decomposed = SVD.sparseSVD(SparseMatrix(data, m, n), k)
+    val decomposed = PCA.sparsePCA(SparseMatrix(data, m, n), k)
     val u = decomposed.U.data
     val s = decomposed.S.data
     val v = decomposed.V.data
