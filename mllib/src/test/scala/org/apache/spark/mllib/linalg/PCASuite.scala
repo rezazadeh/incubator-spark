@@ -30,7 +30,7 @@ import org.apache.spark.rdd.RDD
 
 import org.jblas._
 
-class SVDSuite extends FunSuite with BeforeAndAfterAll {
+class PCASuite extends FunSuite with BeforeAndAfterAll {
   @transient private var sc: SparkContext = _
 
   override def beforeAll() {
@@ -64,95 +64,21 @@ class SVDSuite extends FunSuite with BeforeAndAfterAll {
     assert(diff.norm1 < EPSILON, "matrix mismatch: " + diff.norm1)
   }
 
-  test("full rank matrix svd") {
-    val m = 10
+  test("full rank matrix pca") {
+    val m = 5
     val n = 3
     val data = sc.makeRDD(Array.tabulate(m,n){ (a, b) =>
-      MatrixEntry(a, b, (a + 2).toDouble * (b + 1) / (1 + a + b)) }.flatten )
+      MatrixEntry(a, b, Math.sin(a+b+a*b)) }.flatten )
+
+    println(data.toArray.mkString(", "))
 
     val a = SparseMatrix(data, m, n)
 
-    val decomposed = SVD.sparseSVD(a, n)
-    val u = decomposed.U
-    val v = decomposed.V
-    val s = decomposed.S
-
-    val densea = getDenseMatrix(a)
-    val svd = Singular.sparseSVD(densea)
-
-    val retu = getDenseMatrix(u)
-    val rets = getDenseMatrix(s)
-    val retv = getDenseMatrix(v)
-  
-    // check individual decomposition  
-    assertMatrixEquals(retu, svd(0))
-    assertMatrixEquals(rets, DoubleMatrix.diag(svd(1)))
-    assertMatrixEquals(retv, svd(2))
-
+    val coeffs = PCA.computePCA(a, n)
+    print(coeffs.data.toArray.mkString(", "))
     // check multiplication guarantee
-    assertMatrixEquals(retu.mmul(rets).mmul(retv.transpose), densea)  
-  }
-
- test("rank one matrix svd") {
-    val m = 10
-    val n = 3   
-    val data = sc.makeRDD(Array.tabulate(m, n){ (a,b) =>
-      MatrixEntry(a, b, 1.0) }.flatten )
-    val k = 1
-
-    val a = SparseMatrix(data, m, n)
-
-    val decomposed = SVD.sparseSVD(a, k)
-    val u = decomposed.U
-    val s = decomposed.S
-    val v = decomposed.V
-    val retrank = s.data.toArray.length
-
-    assert(retrank == 1, "rank returned not one")
-
-    val densea = getDenseMatrix(a)
-    val svd = Singular.sparseSVD(densea)
-
-    val retu = getDenseMatrix(u)
-    val rets = getDenseMatrix(s)
-    val retv = getDenseMatrix(v)
-
-    // check individual decomposition  
-    assertMatrixEquals(retu, svd(0).getColumn(0))
-    assertMatrixEquals(rets, DoubleMatrix.diag(svd(1).getRow(0)))
-    assertMatrixEquals(retv, svd(2).getColumn(0))
-
-     // check multiplication guarantee
-    assertMatrixEquals(retu.mmul(rets).mmul(retv.transpose), densea)  
-  }
-
- test("truncated with k") {
-    val m = 10
-    val n = 3
-    val data = sc.makeRDD(Array.tabulate(m,n){ (a, b) =>
-      MatrixEntry(a, b, (a + 2).toDouble * (b + 1)/(1 + a + b)) }.flatten )
-    val a = SparseMatrix(data, m, n)
-    
-    val k = 1 // only one svalue above this
-
-    val decomposed = SVD.sparseSVD(a, k)
-    val u = decomposed.U
-    val s = decomposed.S
-    val v = decomposed.V
-    val retrank = s.data.toArray.length
-
-    val densea = getDenseMatrix(a)
-    val svd = Singular.sparseSVD(densea)
-
-    val retu = getDenseMatrix(u)
-    val rets = getDenseMatrix(s)
-    val retv = getDenseMatrix(v)
-
-    assert(retrank == 1, "rank returned not one")
-    
-    // check individual decomposition  
-    assertMatrixEquals(retu, svd(0).getColumn(0))
-    assertMatrixEquals(rets, DoubleMatrix.diag(svd(1).getRow(0)))
-    assertMatrixEquals(retv, svd(2).getColumn(0))
+    // assertMatrixEquals(retu.mmul(rets).mmul(retv.transpose), densea)  
   }
 }
+
+

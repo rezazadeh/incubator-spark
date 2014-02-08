@@ -29,6 +29,7 @@ import org.jblas.{DoubleMatrix, Singular, MatrixFunctions}
  */
 class SVD {
   private var k: Int = 1
+  private var computeU: Boolean = true
 
   /**
    * Set the number of top-k singular vectors to return
@@ -38,9 +39,17 @@ class SVD {
     this
   }
 
-   /**
-   * Compute SVD using the current set parameters
+  /**
+   * Should U be computed?
    */
+  def computeU(compU: Boolean): SVD = {
+    this.computeU = compU
+    this
+  }
+
+  /**
+  * Compute SVD using the current set parameters
+  */
   def compute(matrix: SparseMatrix) : MatrixSVD = {
     SVD.sparseSVD(matrix, k)
   }

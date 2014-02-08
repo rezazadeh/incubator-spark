@@ -41,7 +41,7 @@ class PCA {
    /**
    * Compute PCA using the current set parameters
    */
-  def compute(matrix: SparseMatrix) : MatrixPCA = {
+  def compute(matrix: SparseMatrix) : SparseMatrix = {
     PCA.computePCA(matrix, k)
   }
 }
@@ -98,54 +98,25 @@ object PCA {
     val colsums = rawdata.map(entry => (entry.j, entry.mval)).reduceByKey(_+_)
     val data = rawdata.map(entry => (entry.j, (entry.i, entry.mval))).join(colsums).map{
       case (col, ((row, mval), colsum)) =>
-        (row, col, (mval - colsum / n.toDouble)) / Math.sqrt(m-1)}
+        MatrixEntry(row, col, (mval - colsum / m.toDouble) / Math.sqrt(n-1)) }
 
-    // Compute A^T A, assuming rows are sparse enough to fit in memory
-    val rows = data.map(entry =>
-            (entry.i, (entry.j, entry.mval))).groupByKey()
-    val emits = rows.flatMap{ case (rowind, cols)  =>
-      cols.flatMap{ case (colind1, mval1) =>
-                    cols.map{ case (colind2, mval2) =>
-                            ((colind1, colind2), mval1*mval2) } }
-    }.reduceByKey(_+_)
 
-    // Construct jblas A^T A locally
-    val ata = DoubleMatrix.zeros(n, n)
-    for (entry <- emits.toArray) {
-      ata.put(entry._1._1, entry._1._2, entry._2)
-    }
-
-    // Since A^T A is small, we can compute its PCA directly
-    val svd = Singular.sparsePCA(ata)
-    val V = svd(0)
-    val sigmas = MatrixFunctions.sqrt(svd(1)).toArray.filter(x => x > 1e-9)
-
-    if (sigmas.size < k) {
-      throw new Exception("Not enough singular values to return")
-    } 
-
-    val sigma = sigmas.take(k)
-
-    val sc = data.sparkContext
-
-    // prepare V for returning
-    val retVdata = sc.makeRDD(
-            Array.tabulate(V.rows, sigma.length){ (i,j) =>
-                    MatrixEntry(i, j, V.get(i,j)) }.flatten)
-    val retV = SparseMatrix(retVdata, V.rows, sigma.length)
+    val mysvd = new SVD
+    val retV = mysvd.setK(k).computeU(false).compute(SparseMatrix(data, m, n)).V
+    retV
   }
 
 
   def main(args: Array[String]) {
-    if (args.length < 8) {
+    if (args.length < 6) {
       println("Usage: PCA <master> <matrix_file> <m> <n> " +
               "<k> <output_coefficient_file>")
       System.exit(1)
     }
 
-    val (master, inputFile, m, n, k, output_u, output_s, output_v) = 
+    val (master, inputFile, m, n, k, output_u) = 
       (args(0), args(1), args(2).toInt, args(3).toInt,
-      args(4).toInt, args(5), args(6), args(7))
+      args(4).toInt, args(5))
     
     val sc = new SparkContext(master, "PCA")
     
@@ -155,15 +126,10 @@ object PCA {
       MatrixEntry(parts(0).toInt, parts(1).toInt, parts(2).toDouble)
     }
 
-    val decomposed = PCA.sparsePCA(SparseMatrix(data, m, n), k)
-    val u = decomposed.U.data
-    val s = decomposed.S.data
-    val v = decomposed.V.data
+    val u = PCA.computePCA(SparseMatrix(data, m, n), k)
     
-    println("Computed " + s.toArray.length + " singular values and vectors")
-    u.saveAsTextFile(output_u)
-    s.saveAsTextFile(output_s)
-    v.saveAsTextFile(output_v)
+    println("Computed " + k + " principal vectors")
+    u.data.saveAsTextFile(output_u)
     System.exit(0)
   }
 }
