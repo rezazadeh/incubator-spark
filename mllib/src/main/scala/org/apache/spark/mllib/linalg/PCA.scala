@@ -49,7 +49,7 @@ class PCA {
 
 /**
  * Top-level methods for calling Principal Component Analysis
- * NOTE: All matrices are in 0-indexed sparse format RDD[((int, int), value)]
+ * NOTE: All matrices are in 0-indexed sparse format SparseMatrix
  */
 object PCA {
 /**
