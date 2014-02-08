@@ -25,13 +25,13 @@ import org.jblas.{DoubleMatrix, Singular, MatrixFunctions}
 
 
 /**
- * Class used to obtain singular value decompositions
+ * Class used to obtain principal components
  */
 class PCA {
   private var k: Int = 1
 
   /**
-   * Set the number of top-k singular vectors to return
+   * Set the number of top-k principle components to return
    */
   def setK(k: Int): PCA = {
     this.k = k
@@ -48,38 +48,27 @@ class PCA {
 
 
 /**
- * Top-level methods for calling Singular Value Decomposition
+ * Top-level methods for calling Principal Component Analysis
  * NOTE: All matrices are in 0-indexed sparse format RDD[((int, int), value)]
  */
 object PCA {
 /**
- * Singular Value Decomposition for Tall and Skinny matrices.
- * Given an m x n matrix A, this will compute matrices U, S, V such that
- * A = U * S * V'
- * 
- * There is no restriction on m, but we require n^2 doubles to fit in memory.
- * Further, n should be less than m.
- * 
- * The decomposition is computed by first computing A'A = V S^2 V',
- * computing svd locally on that (since n x n is small),
- * from which we recover S and V. 
- * Then we compute U via easy matrix multiplication
- * as U =  A * V * S^-1
- * 
- * Only the k largest singular values and associated vectors are found.
- * If there are k such values, then the dimensions of the return will be:
- *
- * S is k x k and diagonal, holding the singular values on diagonal
- * U is m x k and satisfies U'U = eye(k)
- * V is n x k and satisfies V'V = eye(k)
+ * Principal Component Analysis.
+ * Computes the top k principal component coefficients for the m-by-n data matrix X.
+ * Rows of X correspond to observations and columns correspond to variables. 
+ * The coefficient matrix is n-by-k. Each column of coeff contains coefficients
+ * for one principal component, and the columns are in descending 
+ * order of component variance.
+ * This function centers the data and uses the 
+ * singular value decomposition (SVD) algorithm. 
  *
  * All input and output is expected in sparse matrix format, 0-indexed
  * as tuples of the form ((i,j),value) all in RDDs using the
  * SparseMatrix class
  *
  * @param matrix sparse matrix to factorize
- * @param k Recover k singular values and vectors
- * @return Three sparse matrices: U, S, V such that A = USV^T
+ * @param k Recover k principal components
+ * @return An nxk matrix of principal components
  */
   def computePCA(
       matrix: SparseMatrix,
