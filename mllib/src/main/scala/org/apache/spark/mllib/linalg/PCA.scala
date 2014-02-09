@@ -72,9 +72,18 @@ class PCA {
       throw new IllegalArgumentException("Expecting a well-formed matrix")
     }
 
+    val sc = rawData.sparkContext
+    val zeros = sc.parallelize(0 to m - 1).cartesian(sc.parallelize(0 to n - 1)).map{
+     case (i, j) => ((i, j), 0.0)
+    }
+    val withzeros = rawData.map(x => ((x.i, x.j), x.mval))
+      .union(zeros).reduceByKey(_+_).map{
+      case ((i, j), mval) => MatrixEntry(i, j, mval) 
+    }
+
     // compute column sums and normalize matrix
     val colSums = rawData.map(entry => (entry.j, entry.mval)).reduceByKey(_+_)
-    val data = rawData.map(entry => (entry.j, (entry.i, entry.mval))).join(colSums).map{
+    val data = withzeros.map(entry => (entry.j, (entry.i, entry.mval))).join(colSums).map{
       case (col, ((row, mval), colsum)) =>
         MatrixEntry(row, col, (mval - colsum / m.toDouble) / Math.sqrt(n-1)) }
 
