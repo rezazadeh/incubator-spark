@@ -42,7 +42,7 @@ class SVD {
   /**
    * Should U be computed?
    */
-  def computeU(compU: Boolean): SVD = {
+  def setComputeU(compU: Boolean): SVD = {
     this.computeU = compU
     this
   }
@@ -91,11 +91,7 @@ object SVD {
  * @param computeU gives the option of skipping the U computation
  * @return Three sparse matrices: U, S, V such that A = USV^T
  */
-  def sparseSVD(
-      matrix: SparseMatrix,
-      k: Int, computeU: Boolean)
-    : MatrixSVD =
-  {
+  def sparseSVD(matrix: SparseMatrix, k: Int, computeU: Boolean): MatrixSVD = {
     val data = matrix.data
     val m = matrix.m
     val n = matrix.n
@@ -156,9 +152,11 @@ object SVD {
       // Multiply A by VS^-1
       val aCols = data.map(entry => (entry.j, (entry.i, entry.mval)))
       val bRows = vsirdd.map(entry => (entry._1._1, (entry._1._2, entry._2)))
-      val retUdata = aCols.join(bRows).map( {case (key, ( (rowInd, rowVal), (colInd, colVal)) )
-          => ((rowInd, colInd), rowVal*colVal)}).reduceByKey(_+_)
-            .map{ case ((row, col), mval) => MatrixEntry(row, col, mval)}
+      val retUdata = aCols.join(bRows).map {
+        case (key, ( (rowInd, rowVal), (colInd, colVal)) ) => 
+          ((rowInd, colInd), rowVal*colVal)
+      }.reduceByKey(_+_).map{ case ((row, col), mval) => MatrixEntry(row, col, mval)}
+      
       val retU = SparseMatrix(retUdata, m, sigma.length)
       MatrixSVD(retU, retS, retV)  
     } else {
@@ -175,11 +173,7 @@ object SVD {
    * @param k Recover k singular values and vectors
    * @return Three sparse matrices: U, S, V such that A = USV^T
    */
-   def sparseSVD(
-       matrix: SparseMatrix,
-       k: Int)
-     : MatrixSVD =
-   {
+   def sparseSVD(matrix: SparseMatrix, k: Int): MatrixSVD = {
      sparseSVD(matrix, k, true)
    }
 

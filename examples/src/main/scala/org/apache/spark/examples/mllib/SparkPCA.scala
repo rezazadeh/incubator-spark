@@ -49,7 +49,7 @@ object SparkPCA {
     val n = args(3).toInt
 
     // recover top principal component
-    val coeffs = PCA.computePCA(SparseMatrix(data, m, n), 1)
+    val coeffs = new PCA().computePCA(SparseMatrix(data, m, n), 1)
 
     println("top principal component = " + coeffs.data.toArray.mkString)
   }

@@ -76,7 +76,7 @@ class PCASuite extends FunSuite with BeforeAndAfterAll {
                         (2,0,0.9553),  (2,1,-0.0649),  (2,2,0.2886))
     val realpca = sc.makeRDD(realpcaarray.map(x => MatrixEntry(x._1, x._2, x._3)))
 
-    val coeffs = PCA.computePCA(a, n)
+    val coeffs = new PCA().computePCA(a, n)
 
     assertMatrixEquals(getDenseMatrix(SparseMatrix(realpca,n,n)), getDenseMatrix(coeffs))  
   }
@@ -94,7 +94,7 @@ class PCASuite extends FunSuite with BeforeAndAfterAll {
     val realpca = sc.makeRDD(realpcaarray.map(x => MatrixEntry(x._1, x._2, x._3)))
 
     val k = 2
-    val coeffs = PCA.computePCA(a, k)
+    val coeffs = new PCA().computePCA(a, k)
 
     assertMatrixEquals(getDenseMatrix(SparseMatrix(realpca,n,k)), getDenseMatrix(coeffs))
   } 

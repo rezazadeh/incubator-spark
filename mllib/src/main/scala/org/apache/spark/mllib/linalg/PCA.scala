@@ -41,8 +41,50 @@ class PCA {
    /**
    * Compute PCA using the current set parameters
    */
-  def compute(matrix: SparseMatrix) : SparseMatrix = {
-    PCA.computePCA(matrix, k)
+  def compute(matrix: SparseMatrix): SparseMatrix = {
+    computePCA(matrix, k)
+  }
+
+  /**
+  * Principal Component Analysis.
+  * Computes the top k principal component coefficients for the m-by-n data matrix X.
+  * Rows of X correspond to observations and columns correspond to variables. 
+  * The coefficient matrix is n-by-k. Each column of coeff contains coefficients
+  * for one principal component, and the columns are in descending 
+  * order of component variance.
+  * This function centers the data and uses the 
+  * singular value decomposition (SVD) algorithm. 
+  *
+  * All input and output is expected in sparse matrix format, 0-indexed
+  * as tuples of the form ((i,j),value) all in RDDs using the
+  * SparseMatrix class
+  *
+  * @param matrix sparse matrix to factorize
+  * @param k Recover k principal components
+  * @return An nxk matrix of principal components
+  */
+  def computePCA(
+      matrix: SparseMatrix,
+      k: Int)
+    : SparseMatrix =
+  {
+    val rawData = matrix.data
+    val m = matrix.m
+    val n = matrix.n
+
+    if (m <= 0 || n <= 0) {
+      throw new IllegalArgumentException("Expecting a well-formed matrix")
+    }
+
+    // compute column sums and normalize matrix
+    val colSums = rawData.map(entry => (entry.j, entry.mval)).reduceByKey(_+_)
+    val data = rawData.map(entry => (entry.j, (entry.i, entry.mval))).join(colSums).map{
+      case (col, ((row, mval), colsum)) =>
+        MatrixEntry(row, col, (mval - colsum / m.toDouble) / Math.sqrt(n-1)) }
+
+    val mysvd = new SVD
+    val retV = mysvd.setK(k).setComputeU(false).compute(SparseMatrix(data, m, n)).V
+    retV
   }
 }
 
@@ -52,49 +94,6 @@ class PCA {
  * NOTE: All matrices are in 0-indexed sparse format SparseMatrix
  */
 object PCA {
-/**
- * Principal Component Analysis.
- * Computes the top k principal component coefficients for the m-by-n data matrix X.
- * Rows of X correspond to observations and columns correspond to variables. 
- * The coefficient matrix is n-by-k. Each column of coeff contains coefficients
- * for one principal component, and the columns are in descending 
- * order of component variance.
- * This function centers the data and uses the 
- * singular value decomposition (SVD) algorithm. 
- *
- * All input and output is expected in sparse matrix format, 0-indexed
- * as tuples of the form ((i,j),value) all in RDDs using the
- * SparseMatrix class
- *
- * @param matrix sparse matrix to factorize
- * @param k Recover k principal components
- * @return An nxk matrix of principal components
- */
-  def computePCA(
-      matrix: SparseMatrix,
-      k: Int)
-    : SparseMatrix =
-  {
-    val rawdata = matrix.data
-    val m = matrix.m
-    val n = matrix.n
-
-    if (m <= 0 || n <= 0) {
-      throw new IllegalArgumentException("Expecting a well-formed matrix")
-    }
-
-    // compute column sums and normalize matrix
-    val colsums = rawdata.map(entry => (entry.j, entry.mval)).reduceByKey(_+_)
-    val data = rawdata.map(entry => (entry.j, (entry.i, entry.mval))).join(colsums).map{
-      case (col, ((row, mval), colsum)) =>
-        MatrixEntry(row, col, (mval - colsum / m.toDouble) / Math.sqrt(n-1)) }
-
-    val mysvd = new SVD
-    val retV = mysvd.setK(k).computeU(false).compute(SparseMatrix(data, m, n)).V
-    retV
-  }
-
-
   def main(args: Array[String]) {
     if (args.length < 6) {
       println("Usage: PCA <master> <matrix_file> <m> <n> " +
@@ -108,13 +107,13 @@ object PCA {
     
     val sc = new SparkContext(master, "PCA")
     
-    val rawdata = sc.textFile(inputFile)
-    val data = rawdata.map { line =>
+    val rawData = sc.textFile(inputFile)
+    val data = rawData.map { line =>
       val parts = line.split(',')
       MatrixEntry(parts(0).toInt, parts(1).toInt, parts(2).toDouble)
     }
 
-    val u = PCA.computePCA(SparseMatrix(data, m, n), k)
+    val u = new PCA().computePCA(SparseMatrix(data, m, n), k)
     
     println("Computed " + k + " principal vectors")
     u.data.saveAsTextFile(output_u)
