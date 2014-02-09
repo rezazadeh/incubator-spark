@@ -63,11 +63,7 @@ class PCA {
   * @param k Recover k principal components
   * @return An nxk matrix of principal components
   */
-  def computePCA(
-      matrix: SparseMatrix,
-      k: Int)
-    : SparseMatrix =
-  {
+  def computePCA(matrix: SparseMatrix, k: Int): SparseMatrix = {
     val rawData = matrix.data
     val m = matrix.m
     val n = matrix.n
