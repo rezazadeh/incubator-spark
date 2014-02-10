@@ -21,7 +21,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 
-import org.jblas.{DoubleMatrix, Singular, MatrixFunctions}
+import org.apache.spark.mllib.util._
 
 
 /**
@@ -41,7 +41,7 @@ class PCA {
    /**
    * Compute PCA using the current set parameters
    */
-  def compute(matrix: SparseMatrix): SparseMatrix = {
+  def compute(matrix: DenseMatrix): DenseMatrix = {
     computePCA(matrix, k)
   }
 
@@ -55,16 +55,13 @@ class PCA {
   * This function centers the data and uses the 
   * singular value decomposition (SVD) algorithm. 
   *
-  * All input and output is expected in sparse matrix format, 0-indexed
-  * as tuples of the form ((i,j),value) all in RDDs using the
-  * SparseMatrix class
+  * All input and output is expected in DenseMatrix format
   *
-  * @param matrix sparse matrix to factorize
+  * @param matrix dense matrix to perform pca on
   * @param k Recover k principal components
   * @return An nxk matrix of principal components
   */
-  def computePCA(matrix: SparseMatrix, k: Int): SparseMatrix = {
-    val rawData = matrix.data
+  def computePCA(matrix: DenseMatrix, k: Int): DenseMatrix = {
     val m = matrix.m
     val n = matrix.n
 
@@ -72,31 +69,24 @@ class PCA {
       throw new IllegalArgumentException("Expecting a well-formed matrix")
     }
 
-    val sc = rawData.sparkContext
-    val zeros = sc.parallelize(0 to m - 1).cartesian(sc.parallelize(0 to n - 1)).map{
-     case (i, j) => ((i, j), 0.0)
-    }
-    val withzeros = rawData.map(x => ((x.i, x.j), x.mval))
-      .union(zeros).reduceByKey(_+_).map{
-      case ((i, j), mval) => MatrixEntry(i, j, mval) 
-    }
-
     // compute column sums and normalize matrix
+    val rawData = matrix.rows.flatMap{
+      x => Array.tabulate(x.data.size)(idx => MatrixEntry(x.i, idx, x.data(idx)))
+    }
     val colSums = rawData.map(entry => (entry.j, entry.mval)).reduceByKey(_+_)
-    val data = withzeros.map(entry => (entry.j, (entry.i, entry.mval))).join(colSums).map{
+    val data = rawData.map(entry => (entry.j, (entry.i, entry.mval))).join(colSums).map{
       case (col, ((row, mval), colsum)) =>
         MatrixEntry(row, col, (mval - colsum / m.toDouble) / Math.sqrt(n-1)) }
 
-    val mysvd = new SVD
-    val retV = mysvd.setK(k).setComputeU(false).compute(SparseMatrix(data, m, n)).V
-    retV
+    val retV = new SVD().setK(k).setComputeU(false).compute(SparseMatrix(data, m, n)).V
+    LAUtils.spToDense(retV)
   }
 }
 
 
 /**
  * Top-level methods for calling Principal Component Analysis
- * NOTE: All matrices are in 0-indexed sparse format SparseMatrix
+ * NOTE: All matrices are DenseMatrix format
  */
 object PCA {
   def main(args: Array[String]) {
@@ -118,10 +108,10 @@ object PCA {
       MatrixEntry(parts(0).toInt, parts(1).toInt, parts(2).toDouble)
     }
 
-    val u = new PCA().computePCA(SparseMatrix(data, m, n), k)
+    val u = new PCA().computePCA(LAUtils.spToDense(SparseMatrix(data, m, n)), k)
     
     println("Computed " + k + " principal vectors")
-    u.data.saveAsTextFile(output_u)
+    u.rows.saveAsTextFile(output_u)
     System.exit(0)
   }
 }

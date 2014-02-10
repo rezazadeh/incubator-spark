@@ -21,6 +21,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.PCA
 import org.apache.spark.mllib.linalg.MatrixEntry
 import org.apache.spark.mllib.linalg.SparseMatrix
+import org.apache.spark.mllib.util._
+
 
 /**
  * Compute PCA of an example matrix
@@ -49,8 +51,8 @@ object SparkPCA {
     val n = args(3).toInt
 
     // recover top principal component
-    val coeffs = new PCA().computePCA(SparseMatrix(data, m, n), 1)
+    val coeffs = new PCA().computePCA(LAUtils.spToDense(SparseMatrix(data, m, n)), 1)
 
-    println("top principal component = " + coeffs.data.toArray.mkString)
+    println("top principal component = " + coeffs.rows.toArray.mkString(", "))
   }
 }
