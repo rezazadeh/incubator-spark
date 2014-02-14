@@ -154,8 +154,8 @@ object SVD {
       val bRows = vsirdd.map(entry => (entry._1._1, (entry._1._2, entry._2)))
       val retUdata = aCols.join(bRows).map {
         case (key, ( (rowInd, rowVal), (colInd, colVal)) ) => 
-          ((rowInd, colInd), rowVal*colVal)
-      }.reduceByKey(_+_).map{ case ((row, col), mval) => MatrixEntry(row, col, mval)}
+          ((rowInd, colInd), rowVal * colVal)
+      }.reduceByKey(_ + _).map{ case ((row, col), mval) => MatrixEntry(row, col, mval)}
       
       val retU = SparseMatrix(retUdata, m, sigma.length)
       MatrixSVD(retU, retS, retV)  
