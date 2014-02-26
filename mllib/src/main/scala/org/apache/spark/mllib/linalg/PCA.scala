@@ -64,21 +64,31 @@ class PCA {
   def computePCA(matrix: DenseMatrix, k: Int): DenseMatrix = {
     val m = matrix.m
     val n = matrix.n
+    val sc = matrix.rows.sparkContext
 
     if (m <= 0 || n <= 0) {
       throw new IllegalArgumentException("Expecting a well-formed matrix")
     }
 
     // compute column sums and normalize matrix
-    val rawData = matrix.rows.flatMap{
-      x => Array.tabulate(x.data.size)(idx => MatrixEntry(x.i, idx, x.data(idx)))
-    }
-    val colSums = rawData.map(entry => (entry.j, entry.mval)).reduceByKey(_ + _)
-    val data = rawData.map(entry => (entry.j, (entry.i, entry.mval))).join(colSums).map{
-      case (col, ((row, mval), colsum)) =>
-        MatrixEntry(row, col, (mval - colsum / m.toDouble) / Math.sqrt(n-1)) }
-
-    val retV = new SVD().setK(k).setComputeU(false).compute(SparseMatrix(data, m, n)).V
+    val colSums = sc.broadcast(matrix.rows.map(x => x.data).fold(new Array[Double](n)){
+      (a, b) => for(i <- 0 until n) {
+                  a(i) += b(i)
+                }
+      a
+    }).value
+    
+    val data = matrix.rows.map{
+      x => for(i <- 0 until n) {
+        x.data(i) = (x.data(i) - colSums(i) / m) / Math.sqrt(n - 1)
+      }
+      x
+    }           
+   
+    val normalizedMatrix = DenseMatrix(data, m, n)
+ 
+    val retV = new SVD().setK(k).setComputeU(false)
+                .compute(LAUtils.denseToSp(normalizedMatrix)).V
     LAUtils.spToDense(retV)
   }
 }
