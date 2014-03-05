@@ -88,8 +88,8 @@ class PCA {
     val normalizedMatrix = DenseMatrix(data, m, n)
  
     val retV = new SVD().setK(k).setComputeU(false)
-                .compute(LAUtils.denseToSp(normalizedMatrix)).V
-    LAUtils.spToDense(retV)
+                .compute(normalizedMatrix).V
+    retV
   }
 }
 

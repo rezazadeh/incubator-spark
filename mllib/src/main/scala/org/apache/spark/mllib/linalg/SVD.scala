@@ -53,6 +53,13 @@ class SVD {
   def compute(matrix: SparseMatrix) : MatrixSVD = {
     SVD.sparseSVD(matrix, k)
   }
+
+  /**
+  * Compute SVD using the current set parameters
+  */
+  def compute(matrix: DenseMatrix) : DenseMatrixSVD = {
+    SVD.denseSVD(matrix, k, computeU)
+  }
 }
 
 
@@ -164,6 +171,81 @@ object SVD {
     }
   }
 
+ def denseSVD(matrix: DenseMatrix, k: Int, computeU: Boolean): DenseMatrixSVD = {
+    val rows = matrix.rows
+    val m = matrix.m
+    val n = matrix.n
+
+    if (m < n || m <= 0 || n <= 0) {
+      throw new IllegalArgumentException("Expecting a tall and skinny matrix")
+    }
+
+    if (k < 1 || k > n) {
+      throw new IllegalArgumentException("Must request up to n singular values")
+    }
+
+    // Compute A^T A
+    val fullata = matrix.rows.map(x => x.data).map{
+        row => 
+          val miniata = Array.ofDim[Double](n, n)
+          for(i <- 0 until n) for(j <- 0 until n) {
+             miniata(i)(j) += row(i) * row(j)
+          }
+        miniata 
+    }.fold(Array.ofDim[Double](n, n)){
+      (a, b) =>
+          for(i <- 0 until n) for(j <- 0 until n) {
+             a(i)(j) += b(i)(j)
+          }
+      a
+    }
+
+    // Construct jblas A^T A locally
+    val ata = new DoubleMatrix(fullata)
+
+    // Since A^T A is small, we can compute its SVD directly
+    val svd = Singular.sparseSVD(ata)
+    val V = svd(0)
+    val sigmas = MatrixFunctions.sqrt(svd(1)).toArray.filter(x => x > 1e-9)
+
+    if (sigmas.size < k) {
+      throw new Exception("Not enough singular values to return")
+    }
+
+    val sigma = sigmas.take(k)
+
+    val sc = matrix.rows.sparkContext
+
+    // prepare V for returning
+    val retVrows = sc.makeRDD(Array.tabulate(n)(i => MatrixRow(i, V.getRow(i).toArray.take(k))))
+    val retV = DenseMatrix(retVrows, n, k)
+
+    // prepare S for returning
+    val sparseS = DoubleMatrix.diag(new DoubleMatrix(sigmas))
+    val retSrows = sc.makeRDD(Array.tabulate(k)(i => MatrixRow(i, sparseS.getRow(i).toArray)))
+    val retS = DenseMatrix(retSrows, k, k)
+
+    // Compute U as U = A V S^-1
+    if (computeU) {
+      // Compute VS^-1
+      val vsinv = sc.broadcast(Array.tabulate(n, k)((i, j) => V.get(i, j) / sigma(j))).value
+     
+      val uRows = matrix.rows.map{x =>
+        val row = Array.ofDim[Double](k)
+        for(j <- 0 until k) {
+          for(i <- 0 until n) {
+            row(j) += vsinv(i)(j) * x.data(i)  
+          }
+        }
+        MatrixRow(x.i, row)
+      }
+      
+      val retU = DenseMatrix(uRows, m, k)
+      DenseMatrixSVD(retU, retS, retV)
+    } else {
+      DenseMatrixSVD(null, retS, retV)
+    }
+  }
 
    /**
    * Compute SVD with default parameter for computeU = true.
