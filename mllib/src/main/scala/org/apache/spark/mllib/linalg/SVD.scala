@@ -88,11 +88,12 @@ object SVD {
  *
  * @param matrix sparse matrix to factorize
  * @param k Recover k singular values and vectors
+ * @param computeU gives the option of skipping the U computation
  * @return Three sparse matrices: U, S, V such that A = USV^T
  */
   def sparseSVD(
       matrix: SparseMatrix,
-      k: Int)
+      k: Int, computeU: Boolean)
     : MatrixSVD =
   {
     val data = matrix.data
@@ -151,17 +152,36 @@ object SVD {
     val vsirdd = sc.makeRDD(Array.tabulate(V.rows, sigma.length)
                 { (i,j) => ((i, j), V.get(i,j) / sigma(j))  }.flatten)
 
-    // Multiply A by VS^-1
-    val aCols = data.map(entry => (entry.j, (entry.i, entry.mval)))
-    val bRows = vsirdd.map(entry => (entry._1._1, (entry._1._2, entry._2)))
-    val retUdata = aCols.join(bRows).map( {case (key, ( (rowInd, rowVal), (colInd, colVal)))
-        => ((rowInd, colInd), rowVal*colVal)}).reduceByKey(_ + _)
-          .map{ case ((row, col), mval) => MatrixEntry(row, col, mval)}
-    val retU = SparseMatrix(retUdata, m, sigma.length)
-   
-    MatrixSVD(retU, retS, retV)  
+    if (computeU) {
+      // Multiply A by VS^-1
+      val aCols = data.map(entry => (entry.j, (entry.i, entry.mval)))
+      val bRows = vsirdd.map(entry => (entry._1._1, (entry._1._2, entry._2)))
+      val retUdata = aCols.join(bRows).map( {case (key, ( (rowInd, rowVal), (colInd, colVal)) )
+          => ((rowInd, colInd), rowVal*colVal)}).reduceByKey(_+_)
+            .map{ case ((row, col), mval) => MatrixEntry(row, col, mval)}
+      val retU = SparseMatrix(retUdata, m, sigma.length)
+      MatrixSVD(retU, retS, retV)  
+    } else {
+      MatrixSVD(null, retS, retV)
+    }
   }
 
+
+   /**
+   * Compute SVD with default parameter for computeU = true.
+   * See full paramter definition of sparseSVD for more description.
+   *
+   * @param matrix sparse matrix to factorize
+   * @param k Recover k singular values and vectors
+   * @return Three sparse matrices: U, S, V such that A = USV^T
+   */
+   def sparseSVD(
+       matrix: SparseMatrix,
+       k: Int)
+     : MatrixSVD =
+   {
+     sparseSVD(matrix, k, true)
+   }
 
   def main(args: Array[String]) {
     if (args.length < 8) {

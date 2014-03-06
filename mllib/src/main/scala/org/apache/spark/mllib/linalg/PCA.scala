@@ -90,8 +90,8 @@ object PCA {
     val m = matrix.m
     val n = matrix.n
 
-    if (m < n || m <= 0 || n <= 0) {
-      throw new IllegalArgumentException("Expecting a tall and skinny matrix")
+    if (m <= 0 || n <= 0) {
+      throw new IllegalArgumentException("Expecting a well-formed matrix")
     }
 
     // compute column sums and normalize matrix

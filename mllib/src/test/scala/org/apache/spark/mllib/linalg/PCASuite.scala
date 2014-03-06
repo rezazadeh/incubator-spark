@@ -42,7 +42,7 @@ class PCASuite extends FunSuite with BeforeAndAfterAll {
     System.clearProperty("spark.driver.port")
   }
 
-  val EPSILON = 1e-4
+  val EPSILON = 1e-3
 
   // Return jblas matrix from sparse matrix RDD
   def getDenseMatrix(matrix: SparseMatrix) : DoubleMatrix = {
@@ -69,16 +69,38 @@ class PCASuite extends FunSuite with BeforeAndAfterAll {
     val n = 3
     val data = sc.makeRDD(Array.tabulate(m,n){ (a, b) =>
       MatrixEntry(a, b, Math.sin(a+b+a*b)) }.flatten )
-
-    println(data.toArray.mkString(", "))
-
     val a = SparseMatrix(data, m, n)
 
+    val realpcaarray = Array((0,0,-0.2579), (0,1,-0.6602), (0,2,0.7054),
+                        (1,0,-0.1448), (1,1,0.7483),  (1,2,0.6474),
+                        (2,0,0.9553),  (2,1,-0.0649),  (2,2,0.2886))
+    val realpca = sc.makeRDD(realpcaarray.map(x => MatrixEntry(x._1, x._2, x._3)))
+
     val coeffs = PCA.computePCA(a, n)
-    print(coeffs.data.toArray.mkString(", "))
-    // check multiplication guarantee
-    // assertMatrixEquals(retu.mmul(rets).mmul(retv.transpose), densea)  
+
+    println(coeffs.data.toArray.mkString(", "))
+    println(realpca.toArray.mkString(", "))
+
+    assertMatrixEquals(getDenseMatrix(SparseMatrix(realpca,n,n)), getDenseMatrix(coeffs))  
   }
+
+  test("truncated matrix pca") {
+    val m = 5
+    val n = 3
+    val data = sc.makeRDD(Array.tabulate(m,n){ (a, b) =>
+      MatrixEntry(a, b, Math.sin(a+b+a*b)) }.flatten )
+    val a = SparseMatrix(data, m, n)
+
+    val realpcaarray = Array((0,0,-0.2579), (0,1,-0.6602),
+                        (1,0,-0.1448), (1,1,0.7483),
+                        (2,0,0.9553),  (2,1,-0.0649))
+    val realpca = sc.makeRDD(realpcaarray.map(x => MatrixEntry(x._1, x._2, x._3)))
+
+    val k = 2
+    val coeffs = PCA.computePCA(a, k)
+
+    assertMatrixEquals(getDenseMatrix(SparseMatrix(realpca,n,k)), getDenseMatrix(coeffs))
+  } 
 }
 
 
