@@ -73,7 +73,7 @@ class PCA {
     val rawData = matrix.rows.flatMap{
       x => Array.tabulate(x.data.size)(idx => MatrixEntry(x.i, idx, x.data(idx)))
     }
-    val colSums = rawData.map(entry => (entry.j, entry.mval)).reduceByKey(_+_)
+    val colSums = rawData.map(entry => (entry.j, entry.mval)).reduceByKey(_ + _)
     val data = rawData.map(entry => (entry.j, (entry.i, entry.mval))).join(colSums).map{
       case (col, ((row, mval), colsum)) =>
         MatrixEntry(row, col, (mval - colsum / m.toDouble) / Math.sqrt(n-1)) }

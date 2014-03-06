@@ -25,7 +25,7 @@ import org.apache.spark.mllib.util._
 
 
 /**
- * Compute PCA of an example matrix
+ * Compute PCA of an example matrix.
  * Input file should be comma separated, 1 indexed of the form
  * i,j,value
  * Where i is the column, j the row, and value is the matrix entry

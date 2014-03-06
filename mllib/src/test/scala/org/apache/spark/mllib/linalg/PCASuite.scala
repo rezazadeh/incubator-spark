@@ -73,14 +73,14 @@ class PCASuite extends FunSuite with BeforeAndAfterAll {
       MatrixEntry(a, b, Math.sin(a+b+a*b)) }.flatten )
     val a = LAUtils.spToDense(SparseMatrix(data, m, n))
 
-    val realpcaarray = Array((0,0,-0.2579), (0,1,-0.6602), (0,2,0.7054),
+    val realPCAArray = Array((0,0,-0.2579), (0,1,-0.6602), (0,2,0.7054),
                         (1,0,-0.1448), (1,1,0.7483),  (1,2,0.6474),
                         (2,0,0.9553),  (2,1,-0.0649),  (2,2,0.2886))
-    val realpca = sc.makeRDD(realpcaarray.map(x => MatrixEntry(x._1, x._2, x._3)))
+    val realPCA = sc.makeRDD(realPCAArray.map(x => MatrixEntry(x._1, x._2, x._3)))
 
     val coeffs = LAUtils.denseToSp(new PCA().computePCA(a, n))
 
-    assertMatrixEquals(getDenseMatrix(SparseMatrix(realpca,n,n)), getDenseMatrix(coeffs))  
+    assertMatrixEquals(getDenseMatrix(SparseMatrix(realPCA,n,n)), getDenseMatrix(coeffs))  
   }
 
   test("sparse matrix full rank matrix pca") {
@@ -90,14 +90,14 @@ class PCASuite extends FunSuite with BeforeAndAfterAll {
       MatrixEntry(a, b, Math.sin(a+b+a*b)) }.flatten.drop(1) )
     val a = LAUtils.spToDense(SparseMatrix(data, m, n))
 
-    val realpcaarray = Array((0,0,-0.2579), (0,1,-0.6602), (0,2,0.7054),
+    val realPCAArray = Array((0,0,-0.2579), (0,1,-0.6602), (0,2,0.7054),
                         (1,0,-0.1448), (1,1,0.7483),  (1,2,0.6474),
                         (2,0,0.9553),  (2,1,-0.0649),  (2,2,0.2886))
-    val realpca = sc.makeRDD(realpcaarray.map(x => MatrixEntry(x._1, x._2, x._3)))
+    val realPCA = sc.makeRDD(realPCAArray.map(x => MatrixEntry(x._1, x._2, x._3)))
 
     val coeffs = LAUtils.denseToSp(new PCA().computePCA(a, n))
 
-    assertMatrixEquals(getDenseMatrix(SparseMatrix(realpca,n,n)), getDenseMatrix(coeffs))
+    assertMatrixEquals(getDenseMatrix(SparseMatrix(realPCA,n,n)), getDenseMatrix(coeffs))
   }
 
   test("truncated matrix pca") {
@@ -107,15 +107,15 @@ class PCASuite extends FunSuite with BeforeAndAfterAll {
       MatrixEntry(a, b, Math.sin(a+b+a*b)) }.flatten )
     val a = LAUtils.spToDense(SparseMatrix(data, m, n))
 
-    val realpcaarray = Array((0,0,-0.2579), (0,1,-0.6602),
+    val realPCAArray = Array((0,0,-0.2579), (0,1,-0.6602),
                         (1,0,-0.1448), (1,1,0.7483),
                         (2,0,0.9553),  (2,1,-0.0649))
-    val realpca = sc.makeRDD(realpcaarray.map(x => MatrixEntry(x._1, x._2, x._3)))
+    val realPCA = sc.makeRDD(realPCAArray.map(x => MatrixEntry(x._1, x._2, x._3)))
 
     val k = 2
     val coeffs = LAUtils.denseToSp(new PCA().computePCA(a, k))
 
-    assertMatrixEquals(getDenseMatrix(SparseMatrix(realpca,n,k)), getDenseMatrix(coeffs))
+    assertMatrixEquals(getDenseMatrix(SparseMatrix(realPCA,n,k)), getDenseMatrix(coeffs))
   }
 }
 
