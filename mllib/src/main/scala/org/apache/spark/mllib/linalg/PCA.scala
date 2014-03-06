@@ -89,7 +89,6 @@ object PCA {
       case (col, ((row, mval), colsum)) =>
         MatrixEntry(row, col, (mval - colsum / m.toDouble) / Math.sqrt(n-1)) }
 
-
     val mysvd = new SVD
     val retV = mysvd.setK(k).computeU(false).compute(SparseMatrix(data, m, n)).V
     retV
