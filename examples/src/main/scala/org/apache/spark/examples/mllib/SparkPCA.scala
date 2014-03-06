@@ -49,7 +49,7 @@ object SparkSVD {
     val n = args(3).toInt
 
     // recover top principal component
-    val coeffs = PCA.compute(SparseMatrix(data, m, n), 1)
+    val coeffs = PCA.computePCA(SparseMatrix(data, m, n), 1)
 
     println("singular values = " + coeffs.toArray.mkString)
   }
