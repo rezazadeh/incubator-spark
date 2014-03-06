@@ -171,6 +171,35 @@ object SVD {
     }
   }
 
+
+/**
+ * Singular Value Decomposition for Tall and Skinny matrices.
+ * Given an m x n matrix A, this will compute matrices U, S, V such that
+ * A = U * S * V'
+ * 
+ * There is no restriction on m, but we require n^2 doubles to fit in memory.
+ * Further, n should be less than m.
+ * 
+ * The decomposition is computed by first computing A'A = V S^2 V',
+ * computing svd locally on that (since n x n is small),
+ * from which we recover S and V. 
+ * Then we compute U via easy matrix multiplication
+ * as U =  A * V * S^-1
+ * 
+ * Only the k largest singular values and associated vectors are found.
+ * If there are k such values, then the dimensions of the return will be:
+ *
+ * S is k x k and diagonal, holding the singular values on diagonal
+ * U is m x k and satisfies U'U = eye(k)
+ * V is n x k and satisfies V'V = eye(k)
+ *
+ * All input and output is expected in DenseMatrix format
+ *
+ * @param matrix sparse matrix to factorize
+ * @param k Recover k singular values and vectors
+ * @param computeU gives the option of skipping the U computation
+ * @return Three sparse matrices: U, S, V such that A = USV^T
+ */
  def denseSVD(matrix: DenseMatrix, k: Int, computeU: Boolean): DenseMatrixSVD = {
     val rows = matrix.rows
     val m = matrix.m
